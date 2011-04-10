@@ -51,3 +51,8 @@ Lets you inspect the url.
 * And you can decode url encode strings  
 
 		{exp:sherlock:url_decode string="Cheese%20is%20awesome!"}
+
+		
+## Issues
+
+Please log any issues or problems here: <https://github.com/themusicman/Sherlock/issues>
