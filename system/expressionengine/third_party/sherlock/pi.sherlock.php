@@ -19,6 +19,12 @@ class Sherlock {
 	
 	public $return_data = '';
 	
+	protected $segments = array();
+	
+	protected $entry_title_segments = array();
+	
+	protected $category_title_segments = array();
+	
 	protected $page_types = array(
 		'pagination' 		=> FALSE,
 		'category' 			=> FALSE,
@@ -50,6 +56,18 @@ class Sherlock {
 	 **/
 	public function page_type() 
 	{		
+		/*
+			TODO This needs a big old refactor and cleanup....
+		*/
+		
+		$this->category_title_segments = array_filter(
+			explode('|', $this->EE->TMPL->fetch_param('category_title_segments', "2"))
+		);
+		
+		$this->entry_title_segments = array_filter(
+			explode('|', $this->EE->TMPL->fetch_param('entry_title_segments', "2"))
+		);
+		
 		$this->tagdata = $this->EE->TMPL->tagdata;
 
 		$this->category_trigger = $this->EE->config->item("reserved_category_word");
@@ -78,9 +96,25 @@ class Sherlock {
 		
 		$conditionals = array();
 		
+		if ($this->_is_listing())
+		{
+			$conditionals['is_listing'] = TRUE;
+			$conditionals['is_not_listing'] = FALSE;
+			$conditionals['is_entry'] = FALSE;
+			$conditionals['is_not_entry'] = TRUE;
+		}
+		else
+		{
+			$conditionals['is_listing'] = FALSE;
+			$conditionals['is_not_listing'] = TRUE;
+			$conditionals['is_entry'] = TRUE;
+			$conditionals['is_not_entry'] = FALSE;
+		}
+		
 		foreach ($this->page_types as $page_type => $cond) 
 		{
 			$conditionals['is_'.$page_type] = $cond;
+			$conditionals['is_not_'.$page_type] = !$cond;
 		}	
 			
 		$conditionals['page_type'] = $this->current_type;
@@ -90,6 +124,63 @@ class Sherlock {
 		$this->return_data = str_replace('{page_type}', $this->current_type, $this->tagdata);
 
 		return $this->return_data;
+	}
+	
+	/**
+	 * _is_listing
+	 *
+	 * @access public
+	 * @param  void	
+	 * @return void
+	 * 
+	 **/
+	public function _is_listing() 
+	{	
+		
+		if ($this->page_types['category'] || $this->page_types['pagination'] || $this->page_types['archive'])
+		{
+			
+			if ($this->page_types['category'] AND $this->page_types['pagination'] === FALSE)
+			{	
+				//this might not be an listing page... let check
+				foreach (array_diff($this->entry_title_segments, $this->category_title_segments) as $segment) 
+				{
+					$segment = (int) $segment;
+					if (
+							array_key_exists($segment, $this->segments) &&
+							!empty($this->segments[$segment])
+						)
+					{
+						return FALSE;
+					}
+					
+				}
+			}
+			else
+			{
+				return TRUE;
+			}
+		}
+		else
+		{	
+			//this might not be an entry page... let check
+			foreach ($this->entry_title_segments as $segment) 
+			{
+				$segment = (int) $segment;
+
+				if (array_key_exists($segment, $this->segments) && !empty($this->segments[$segment]))
+				{
+					return FALSE;
+				}
+				else 
+				{
+					return TRUE;
+				}
+			}
+		}
+		
+		
+		return TRUE;
 	}
 	
 	/**
@@ -136,7 +227,7 @@ class Sherlock {
 	{
 		$category_url_title = $this->EE->TMPL->fetch_param('category_url_title', NULL);
 		
-		$cat_id = '';
+		$cat_id = 0;
 		
 		if ($category_url_title !== NULL && !empty($category_url_title))
 		{
@@ -163,6 +254,47 @@ class Sherlock {
 		{
 			return $this->EE->TMPL->parse_variables_row($tagdata, array('category_id' => $cat_id));
 		}
+	}
+	
+	
+	/**
+	 * entry_id
+	 *
+	 * @access public
+	 * @param  void	
+	 * @return void
+	 * 
+	 **/
+	public function entry_meta() 
+	{
+		$url_title = $this->EE->TMPL->fetch_param('url_title', NULL);
+		
+		$status = $this->EE->TMPL->fetch_param('status', 'open');
+		
+		if ($url_title) 
+		{
+			
+			$entry_query = $this->EE->db->select('entry_id, title, channel_id, author_id, status')
+				->from('channel_titles')
+				->where('status', $status)
+				->where('url_title', $url_title)
+				->limit(1)
+				->get();
+				
+			if ($entry_query->num_rows() == 1) 
+			{	
+				return $this->EE->TMPL->parse_variables_row($this->EE->TMPL->tagdata, $entry_query->row_array());
+			}	
+			else
+			{
+				return $this->EE->TMPL->no_results();
+			}
+		}
+		else
+		{
+			return $this->EE->TMPL->no_results();
+		}
+		
 	}
 	
 	/**
