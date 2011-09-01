@@ -227,15 +227,22 @@ class Sherlock {
 	{
 		$category_url_title = $this->EE->TMPL->fetch_param('category_url_title', NULL);
 		
+		$category_group = $this->EE->TMPL->fetch_param('category_group', NULL);
+		
 		$cat_id = 0;
 		
 		if ($category_url_title !== NULL && !empty($category_url_title))
 		{
-			$category_query = $this->EE->db->select('cat_id')
+			$this->EE->db->select('cat_id')
 				->from('categories')
-				->where('cat_url_title', $category_url_title)
-				->limit(1)
-				->get();
+				->where('cat_url_title', $category_url_title);
+								
+			if ($category_group) 
+			{
+			  $this->EE->db->where('group_id', $category_group);
+			}
+			
+      $category_query = $this->EE->db->limit(1)->get();
 				
 				if ($category_query->num_rows() == 1)
 				{
